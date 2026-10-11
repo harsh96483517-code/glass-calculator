@@ -11,7 +11,7 @@ echo "== 1. compile resources =="
 echo "== 2. link resources -> base.apk =="
 "$BT/aapt2" link -o base.apk -I "$AJAR" --manifest AndroidManifest.xml \
   compiled.zip --java gen --min-sdk-version 24 --target-sdk-version 34 \
-  -A assets --version-code 1 --version-name 1.0
+  -A assets --version-code 2 --version-name 1.1
 
 echo "== 3. compile java =="
 rm -rf classes dexout && mkdir -p classes dexout

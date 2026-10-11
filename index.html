@@ -132,6 +132,7 @@ button { font: inherit; color: inherit; }
 .topbar { position: relative; z-index: 6; flex: none; height: 56px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; }
 .title { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
 .chip {
+  position: relative;
   appearance: none; border: 0; height: 40px; min-width: 44px; padding: 0 16px; border-radius: 20px;
   font-size: 15px; font-weight: 500; cursor: pointer; background: var(--key);
   box-shadow: inset 0 1px 0 var(--key-hi), inset 0 0 0 1px var(--g-edge);
@@ -185,7 +186,7 @@ button { font: inherit; color: inherit; }
 @keyframes pop { from { opacity: .45; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
 
 /* ---------- Keypad (one glass pane, inset keys) ---------- */
-.keypad { flex: none; border-radius: var(--pane-r); padding: var(--pad); }
+.keypad { flex: none; border-radius: var(--pane-r); padding: var(--pad); -webkit-backdrop-filter: saturate(1.7); backdrop-filter: saturate(1.7); }
 .sci { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .45s cubic-bezier(.3, 1, .4, 1); }
 body[data-mode="1"] .sci { grid-template-rows: 1fr; }
 .sci-in { overflow: hidden; min-height: 0; }
@@ -202,6 +203,15 @@ body[data-mode="1"] .keys { grid-auto-rows: clamp(40px, 6.4vh, 64px); }
   transition: transform .12s ease, background-color .18s ease;
 }
 .key:active { transform: scale(.95); background: var(--key-press); }
+
+/* specular rim: every button gets the same bright glass edge as the panes */
+.key::after, .chip::after, .entry::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; pointer-events: none;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .9), rgba(255, 255, 255, .05) 30%, rgba(255, 255, 255, .02) 60%, rgba(255, 255, 255, .55));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  opacity: .7;
+}
 .key.fn { background: var(--key-fn); font-size: clamp(19px, 3.1vh, 25px); font-weight: 500; }
 .key.fn:active { background: var(--key-press); }
 .key.op { background: var(--op); font-size: clamp(26px, 4.2vh, 34px); font-weight: 500; }
@@ -225,6 +235,7 @@ body[data-mode="1"] .keys { grid-auto-rows: clamp(40px, 6.4vh, 64px); }
 }
 .hist-scroll::-webkit-scrollbar { display: none; }
 .entry {
+  position: relative;
   appearance: none; border: 0; display: block; width: 100%; text-align: right; cursor: pointer;
   padding: 12px 20px 14px; border-radius: 24px; background: var(--key);
   box-shadow: inset 0 1px 0 var(--key-hi), inset 0 0 0 1px var(--g-edge);
@@ -261,7 +272,7 @@ body[data-mode="1"] .keys { grid-auto-rows: clamp(40px, 6.4vh, 64px); }
   position: absolute; inset: 0; border-radius: 32px;
   background: linear-gradient(180deg, var(--g-top), var(--g-bot));
   box-shadow: inset 0 1px 0 var(--g-hi), 0 14px 34px -14px var(--g-shadow);
-  -webkit-backdrop-filter: blur(26px) saturate(1.8); backdrop-filter: blur(26px) saturate(1.8);
+  -webkit-backdrop-filter: saturate(1.8); backdrop-filter: saturate(1.8);
 }
 .tabs { position: relative; z-index: 1; height: 100%; padding: 0 6px; display: grid; grid-template-columns: repeat(3, 1fr); }
 .tab {
@@ -277,7 +288,7 @@ body[data-mode="1"] .keys { grid-auto-rows: clamp(40px, 6.4vh, 64px); }
   position: absolute; z-index: 2; top: 6px; left: 6px; width: calc((100% - 12px) / 3); height: 52px; border-radius: 26px; pointer-events: none;
   isolation: isolate; transform-origin: 50% 50%;
   transform: translate3d(var(--bx), 0, 0) scale(var(--sx), var(--sy));
-  -webkit-backdrop-filter: blur(6px) saturate(1.6); backdrop-filter: blur(6px) saturate(1.6);
+  -webkit-backdrop-filter: saturate(1.6); backdrop-filter: saturate(1.6);
   box-shadow: 0 12px 26px -8px rgba(0, 0, 0, calc(.38 * var(--p))), inset 0 0 14px rgba(255, 255, 255, calc(.3 * var(--p)));
 }
 .bubble::before { content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1; background: var(--ind); opacity: calc(1 - var(--p)); }
@@ -735,6 +746,7 @@ function renderHist() {
     });
   }
   $('#clearBtn').disabled = !S.hist.length;
+  applyButtonGlassAll();
 }
 
 /* ================= Modes + liquid dock ================= */
@@ -769,7 +781,7 @@ function paintDock() {
   st.setProperty('--ds', (1 + (16 / W) * p).toFixed(4)); // whole bar swells a little under your finger
   if (lens.bub) {
     lens.bub.disp.forEach((n, i) => n.setAttribute('scale', (lens.bub.base[i] * p).toFixed(2)));
-    bubble.style.backdropFilter = `saturate(${(1.5).toFixed(2)}) blur(${(7 * (1 - p)).toFixed(2)}px) url(#${lens.bub.id})`;
+    bubble.style.backdropFilter = `saturate(${(1.5).toFixed(2)}) url(#${lens.bub.id})`;
   }
 }
 
@@ -807,6 +819,8 @@ function setMode(i) {
   targetPos = i;
   if (!dragging) kick();
   requestAnimationFrame(fitBig);
+  applyButtonGlassAll();
+  setTimeout(applyButtonGlassAll, 480);   // once the sci grid has finished expanding
 }
 
 const buzz = () => { try { navigator.vibrate && navigator.vibrate(8); } catch (_) {} };
@@ -954,6 +968,7 @@ function nextPalette() { pal = (pal + 1) % PALETTES.length; applyPalette(pal); d
 
 /* ================= Real refraction (Chromium: SVG displacement through backdrop-filter) ================= */
 const SVGNS = 'http://www.w3.org/2000/svg';
+const LENS_OK = /\bChrome\/\d+/.test(navigator.userAgent);
 const svgEl = (n, a) => { const e = document.createElementNS(SVGNS, n); for (const k in a) e.setAttribute(k, a[k]); return e; };
 
 /* Displacement map from a rounded-rect distance field: at the bezel the glass bends the backdrop inward, flat in the middle. */
@@ -1015,18 +1030,55 @@ function buildLens(key, el, o) {
   return (lens[key] = { id, disp, base });
 }
 
+/* ---------- Liquid glass on every button ---------- */
+/* One displacement filter per distinct button size + radius, shared by every
+   button that matches, so a 20-key pad costs only a handful of filters. */
+const btnLens = {};
+function ensureButtonFilter(w, h, r, bezel, px) {
+  const key = w + 'x' + h + 'r' + r + 'z' + bezel;
+  if (btnLens[key]) return btnLens[key];
+  const id = 'lens-b-' + key;
+  btnLens[key] = id;
+  if (!document.getElementById(id)) {
+    const href = lensMap(w, h, r, bezel);
+    const f = svgEl('filter', { id, filterUnits: 'userSpaceOnUse', x: 0, y: 0, width: w, height: h, 'color-interpolation-filters': 'sRGB' });
+    f.appendChild(svgEl('feImage', { href, x: 0, y: 0, width: w, height: h, preserveAspectRatio: 'none', result: 'map' }));
+    f.appendChild(svgEl('feDisplacementMap', { in: 'SourceGraphic', in2: 'map', scale: px * 2, xChannelSelector: 'R', yChannelSelector: 'G' }));
+    $('#lensDefs').appendChild(f);
+  }
+  return id;
+}
+
+function glassify(el) {
+  const w = Math.round(el.offsetWidth), h = Math.round(el.offsetHeight);
+  if (w < 8 || h < 8) return;                       // hidden / collapsed: skip
+  let r = parseFloat(getComputedStyle(el).borderTopLeftRadius);
+  if (!r || Number.isNaN(r)) r = 20;
+  r = Math.round(Math.min(r, Math.min(w, h) / 2));
+  const bezel = Math.round(Math.max(6, Math.min(r * 0.7, Math.min(w, h) * 0.3)));
+  const id = ensureButtonFilter(w, h, r, bezel, 8);
+  el.style.webkitBackdropFilter = `saturate(1.6) url(#${id})`;   // refraction only, no blur
+  el.style.backdropFilter = `saturate(1.6) url(#${id})`;
+}
+
+function applyButtonGlassAll() {
+  if (!LENS_OK) return;
+  document.querySelectorAll('.key, .chip, .tab, .entry').forEach(glassify);
+}
+
 function setupLens() {
-  if (!/\bChrome\/\d+/.test(navigator.userAgent)) return;       // other engines keep the frosted fallback
+  if (!LENS_OK) return;       // other engines keep the frosted fallback
   const screenEl = $('#screen'), keypadEl = $('.keypad');
   const apply = () => {
     const d = buildLens('dock', dockGlass, { r: 32, bezel: 26, px: 14 });
-    if (d) dockGlass.style.backdropFilter = `saturate(1.8) blur(6px) url(#${d.id})`;
+    if (d) dockGlass.style.backdropFilter = `saturate(1.8) url(#${d.id})`;
     buildLens('bub', bubble, { r: 26, bezel: 16, px: 17, aberr: true });
-    [['screen', screenEl], ['keypad', keypadEl]].forEach(([k, el]) => {
-      const l = buildLens(k, el, { r: 32, bezel: 20, px: 9, slack: 700 });
-      if (l) el.style.backdropFilter = `saturate(1.7) blur(10px) url(#${l.id})`;
-    });
+    const scr = buildLens('screen', screenEl, { r: 32, bezel: 20, px: 9, slack: 700 });
+    if (scr) screenEl.style.backdropFilter = `saturate(1.7) blur(10px) url(#${scr.id})`;
+    const kp = buildLens('keypad', keypadEl, { r: 32, bezel: 20, px: 9, slack: 700 });
+    if (kp) keypadEl.style.backdropFilter = `saturate(1.7) url(#${kp.id})`;   // no blur behind the keys
     paintDock();
+    applyButtonGlassAll();
   };
   apply();
   let tmr = 0;
@@ -1044,8 +1096,8 @@ render();
 $('#degBtn').textContent = 'Deg';
 setupLens();
 paintDock();
-addEventListener('resize', () => { place(phase); fitBig(); });
-if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitBig);
+addEventListener('resize', () => { place(phase); fitBig(); applyButtonGlassAll(); });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { fitBig(); applyButtonGlassAll(); });
 
 })();
 </script>
