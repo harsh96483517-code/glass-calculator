@@ -1,0 +1,1053 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Glass Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Registered colours so the whole backdrop + accent can cross-fade between palettes */
+@property --c0 { syntax: '<color>'; inherits: true; initial-value: #6a3df0; }
+@property --c1 { syntax: '<color>'; inherits: true; initial-value: #ff5fa2; }
+@property --c2 { syntax: '<color>'; inherits: true; initial-value: #2ec5ff; }
+@property --c3 { syntax: '<color>'; inherits: true; initial-value: #ffb35c; }
+@property --accent { syntax: '<color>'; inherits: true; initial-value: #7c4dff; }
+
+:root {
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* light (pale wash) */
+  --bg: #eceaf6;
+  --ink: #17141f;
+  --ink-2: rgba(23, 20, 31, .62);
+  --ink-3: rgba(23, 20, 31, .4);
+  --warn: #c2271f;
+  --g-top: rgba(255, 255, 255, .72);
+  --g-bot: rgba(255, 255, 255, .38);
+  --g-hi: rgba(255, 255, 255, .95);
+  --g-edge: rgba(255, 255, 255, .7);
+  --g-shadow: rgba(60, 40, 140, .24);
+  --key: rgba(255, 255, 255, .62);
+  --key-hi: rgba(255, 255, 255, .95);
+  --key-fn: rgba(60, 50, 120, .11);
+  --key-press: rgba(255, 255, 255, .95);
+  --op: rgba(255, 255, 255, .5);
+  --ind: rgba(255, 255, 255, .8);
+  --tint: rgba(236, 234, 246, .6);
+  --blob-o: .6;
+  color-scheme: light;
+
+  --pad: 10px;
+  --key-r: 22px;
+  --pane-r: calc(var(--key-r) + var(--pad)); /* concentric: outer = inner + padding */
+  --gap: 8px;
+
+  transition: --c0 2.4s ease, --c1 2.4s ease, --c2 2.4s ease, --c3 2.4s ease, --accent 1.2s ease;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #08070f;
+    --ink: #f6f4ff;
+    --ink-2: rgba(246, 244, 255, .66);
+    --ink-3: rgba(246, 244, 255, .4);
+    --warn: #ff8a80;
+    --g-top: rgba(255, 255, 255, .17);
+    --g-bot: rgba(255, 255, 255, .06);
+    --g-hi: rgba(255, 255, 255, .34);
+    --g-edge: rgba(255, 255, 255, .15);
+    --g-shadow: rgba(0, 0, 0, .55);
+    --key: rgba(255, 255, 255, .12);
+    --key-hi: rgba(255, 255, 255, .26);
+    --key-fn: rgba(255, 255, 255, .045);
+    --key-press: rgba(255, 255, 255, .26);
+    --op: rgba(255, 255, 255, .2);
+    --ind: rgba(255, 255, 255, .2);
+    --tint: rgba(8, 7, 15, .55);
+    --blob-o: .82;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #08070f;
+  --ink: #f6f4ff;
+  --ink-2: rgba(246, 244, 255, .66);
+  --ink-3: rgba(246, 244, 255, .4);
+  --warn: #ff8a80;
+  --g-top: rgba(255, 255, 255, .17);
+  --g-bot: rgba(255, 255, 255, .06);
+  --g-hi: rgba(255, 255, 255, .34);
+  --g-edge: rgba(255, 255, 255, .15);
+  --g-shadow: rgba(0, 0, 0, .55);
+  --key: rgba(255, 255, 255, .12);
+  --key-hi: rgba(255, 255, 255, .26);
+  --key-fn: rgba(255, 255, 255, .045);
+  --key-press: rgba(255, 255, 255, .26);
+  --op: rgba(255, 255, 255, .2);
+  --ind: rgba(255, 255, 255, .2);
+  --tint: rgba(8, 7, 15, .55);
+  --blob-o: .82;
+  color-scheme: dark;
+}
+@supports (color: color-mix(in srgb, red, blue)) {
+  :root { --op: color-mix(in srgb, var(--accent) 52%, transparent); --ind: color-mix(in srgb, var(--accent) 34%, transparent); }
+}
+
+* { box-sizing: border-box; }
+html { height: 100%; scroll-padding-top: env(safe-area-inset-top, 0px); }
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: Inter, -apple-system, "SF Pro Display", system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- Backdrop: drifting colour blobs (mesh gradient) ---------- */
+.backdrop { position: fixed; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+.blob {
+  position: absolute; left: 0; top: 0; border-radius: 50%;
+  opacity: var(--blob-o); will-change: transform;
+  background: radial-gradient(circle closest-side, var(--c), transparent);
+}
+@supports (color: color-mix(in srgb, red, blue)) {
+  .blob { background: radial-gradient(circle closest-side, var(--c) 0%, color-mix(in srgb, var(--c) 62%, transparent) 30%, color-mix(in srgb, var(--c) 22%, transparent) 62%, transparent 100%); }
+}
+.b0 { --c: var(--c0); } .b1 { --c: var(--c1); } .b2 { --c: var(--c2); } .b3 { --c: var(--c3); }
+
+/* ---------- Shell ---------- */
+.app { position: relative; height: 100%; max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; }
+.topbar { position: relative; z-index: 6; flex: none; height: 56px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; }
+.title { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
+.chip {
+  appearance: none; border: 0; height: 40px; min-width: 44px; padding: 0 16px; border-radius: 20px;
+  font-size: 15px; font-weight: 500; cursor: pointer; background: var(--key);
+  box-shadow: inset 0 1px 0 var(--key-hi), inset 0 0 0 1px var(--g-edge);
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: transform .12s, background-color .2s;
+}
+.chip:active { transform: scale(.95); background: var(--key-press); }
+.chip[disabled] { opacity: .45; pointer-events: none; }
+.chip[hidden] { display: none; }
+.stage { position: relative; flex: 1; min-height: 0; }
+.pane {
+  position: absolute; inset: 0; padding: 4px 16px 92px; display: flex; flex-direction: column; gap: 12px;
+  transition: opacity .3s ease, transform .3s ease, visibility .3s;
+}
+.pane[inert] { opacity: 0; visibility: hidden; transform: translateY(10px); pointer-events: none; }
+
+/* ---------- Glass material ---------- */
+.glass {
+  position: relative; isolation: isolate;
+  background: linear-gradient(180deg, var(--g-top), var(--g-bot));
+  -webkit-backdrop-filter: blur(24px) saturate(1.7); backdrop-filter: blur(24px) saturate(1.7);
+  box-shadow: inset 0 1px 0 var(--g-hi), inset 0 0 0 1px var(--g-edge), 0 18px 40px -18px var(--g-shadow);
+}
+.glass::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: -1;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .24) 0%, rgba(255, 255, 255, 0) 38%);
+}
+
+/* specular rim: bright where the light hits (top-left / bottom-right), like the real glass highlight */
+.rim::after, .glass::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; pointer-events: none;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .95), rgba(255, 255, 255, .08) 28%, rgba(255, 255, 255, .02) 55%, rgba(255, 255, 255, .6));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  opacity: var(--rim, .8);
+}
+
+/* ---------- Display ---------- */
+.screen { flex: 1 1 0; min-height: 96px; border-radius: var(--pane-r); padding: 14px 22px 16px; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
+.expr { display: flex; min-height: 34px; align-items: center; overflow-x: auto; scrollbar-width: none; }
+.expr::-webkit-scrollbar { display: none; }
+.expr span { margin-left: auto; white-space: nowrap; font-size: 26px; font-weight: 400; letter-spacing: -.01em; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.big {
+  appearance: none; border: 0; background: none; padding: 0; margin: 2px 0 0; width: 100%; text-align: right; cursor: pointer;
+  font-size: 72px; font-weight: 300; letter-spacing: -.035em; line-height: 1.08; white-space: nowrap; font-variant-numeric: tabular-nums;
+  -webkit-tap-highlight-color: transparent; transition: opacity .2s;
+}
+.big span { display: inline-block; }
+.big.dim { opacity: .66; }
+.big.err { font-size: 22px !important; font-weight: 500; letter-spacing: -.01em; color: var(--warn); line-height: 1.5; }
+.big.pop span { animation: pop .34s cubic-bezier(.2, .9, .3, 1); }
+@keyframes pop { from { opacity: .45; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+
+/* ---------- Keypad (one glass pane, inset keys) ---------- */
+.keypad { flex: none; border-radius: var(--pane-r); padding: var(--pad); }
+.sci { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .45s cubic-bezier(.3, 1, .4, 1); }
+body[data-mode="1"] .sci { grid-template-rows: 1fr; }
+.sci-in { overflow: hidden; min-height: 0; }
+.sci-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: clamp(32px, 5.4vh, 42px); gap: var(--gap); padding-bottom: var(--gap); }
+.keys { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: clamp(46px, 8.2vh, 72px); gap: var(--gap); }
+body[data-mode="1"] .keys { grid-auto-rows: clamp(40px, 6.4vh, 64px); }
+
+.key {
+  appearance: none; border: 0; margin: 0; padding: 0; position: relative; display: grid; place-items: center;
+  border-radius: var(--key-r); background: var(--key); cursor: pointer;
+  font-size: clamp(22px, 3.7vh, 30px); font-weight: 400; letter-spacing: -.01em; line-height: 1;
+  box-shadow: inset 0 1px 0 var(--key-hi), inset 0 -1px 0 rgba(0, 0, 0, .06), 0 1px 2px rgba(0, 0, 0, .12);
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  transition: transform .12s ease, background-color .18s ease;
+}
+.key:active { transform: scale(.95); background: var(--key-press); }
+.key.fn { background: var(--key-fn); font-size: clamp(19px, 3.1vh, 25px); font-weight: 500; }
+.key.fn:active { background: var(--key-press); }
+.key.op { background: var(--op); font-size: clamp(26px, 4.2vh, 34px); font-weight: 500; }
+.key.op:active { filter: brightness(1.2); }
+.key.eq {
+  color: #fff; font-size: clamp(26px, 4.2vh, 34px); font-weight: 500;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .3), rgba(255, 255, 255, 0) 62%), var(--accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 8px 20px -8px var(--accent);
+}
+.key.eq:active { filter: brightness(1.12); }
+.key.sci { font-size: clamp(15px, 2.4vh, 18px); font-weight: 500; border-radius: calc(var(--key-r) - 6px); background: var(--key-fn); }
+.key.sci:active { background: var(--key-press); }
+.key sup { font-size: .68em; vertical-align: .5em; line-height: 0; }
+.key svg { display: block; }
+
+/* ---------- History ---------- */
+.pane.hist { padding: 0; }
+.hist-scroll {
+  position: absolute; left: 0; right: 0; bottom: 0; top: -56px; overflow-y: auto; overscroll-behavior: contain;
+  padding: 72px 16px 120px; display: flex; flex-direction: column; gap: 10px; scrollbar-width: none;
+}
+.hist-scroll::-webkit-scrollbar { display: none; }
+.entry {
+  appearance: none; border: 0; display: block; width: 100%; text-align: right; cursor: pointer;
+  padding: 12px 20px 14px; border-radius: 24px; background: var(--key);
+  box-shadow: inset 0 1px 0 var(--key-hi), inset 0 0 0 1px var(--g-edge);
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: transform .12s, background-color .18s;
+}
+.entry:active { transform: scale(.985); background: var(--key-press); }
+.entry .e { display: block; font-size: 15px; color: var(--ink-2); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.entry .r { display: block; margin-top: 2px; font-size: 30px; font-weight: 300; letter-spacing: -.025em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.empty { margin: auto; padding: 0 28px; text-align: center; max-width: 300px; }
+.empty .e1 { margin: 0 0 6px; font-size: 20px; font-weight: 600; letter-spacing: -.015em; }
+.empty .e2 { margin: 0; font-size: 15px; line-height: 1.45; color: var(--ink-2); }
+
+/* ---------- Progressive fade blur (content dissolves under bars) ---------- */
+.fade {
+  position: fixed; left: 0; right: 0; z-index: 5; pointer-events: none;
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+  background: linear-gradient(var(--dir), var(--tint), transparent);
+}
+.fade.top { top: 0; --dir: to bottom; height: calc(env(safe-area-inset-top, 0px) + 92px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, .78) 30%, rgba(0, 0, 0, .34) 58%, rgba(0, 0, 0, .08) 82%, transparent 100%);
+          mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, .78) 30%, rgba(0, 0, 0, .34) 58%, rgba(0, 0, 0, .08) 82%, transparent 100%); }
+.fade.bottom { bottom: 0; --dir: to top; height: calc(env(safe-area-inset-bottom, 0px) + 112px);
+  -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, .78) 30%, rgba(0, 0, 0, .34) 58%, rgba(0, 0, 0, .08) 82%, transparent 100%);
+          mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, .78) 30%, rgba(0, 0, 0, .34) 58%, rgba(0, 0, 0, .08) 82%, transparent 100%); }
+
+/* ---------- Floating liquid-glass dock ---------- */
+.dock {
+  position: absolute; left: 16px; right: 16px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); margin: 0 auto; max-width: 400px; height: 64px; z-index: 7;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+  --p: 0; --bx: 0px; --sx: 1; --sy: 1; --ds: 1;
+  transform: scale(var(--ds)); transform-origin: 50% 50%;
+}
+.dock-glass {
+  position: absolute; inset: 0; border-radius: 32px;
+  background: linear-gradient(180deg, var(--g-top), var(--g-bot));
+  box-shadow: inset 0 1px 0 var(--g-hi), 0 14px 34px -14px var(--g-shadow);
+  -webkit-backdrop-filter: blur(26px) saturate(1.8); backdrop-filter: blur(26px) saturate(1.8);
+}
+.tabs { position: relative; z-index: 1; height: 100%; padding: 0 6px; display: grid; grid-template-columns: repeat(3, 1fr); }
+.tab {
+  appearance: none; border: 0; background: none; position: relative; padding: 0; border-radius: 26px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  font-size: 11.5px; font-weight: 500; letter-spacing: .005em; color: var(--ink-2); cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: color .2s;
+}
+.tab[aria-selected="true"] { color: var(--ink); }
+.tab svg { display: block; }
+/* the lens bubble sits ABOVE the tabs so it refracts them */
+.bubble {
+  position: absolute; z-index: 2; top: 6px; left: 6px; width: calc((100% - 12px) / 3); height: 52px; border-radius: 26px; pointer-events: none;
+  isolation: isolate; transform-origin: 50% 50%;
+  transform: translate3d(var(--bx), 0, 0) scale(var(--sx), var(--sy));
+  -webkit-backdrop-filter: blur(6px) saturate(1.6); backdrop-filter: blur(6px) saturate(1.6);
+  box-shadow: 0 12px 26px -8px rgba(0, 0, 0, calc(.38 * var(--p))), inset 0 0 14px rgba(255, 255, 255, calc(.3 * var(--p)));
+}
+.bubble::before { content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1; background: var(--ind); opacity: calc(1 - var(--p)); }
+.bubble::after { --rim: calc(.45 + .5 * var(--p)); }
+
+/* ---------- Toast ---------- */
+.toast {
+  position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 92px); z-index: 9; transform: translate(-50%, 12px);
+  padding: 9px 16px; border-radius: 18px; font-size: 14px; font-weight: 500; opacity: 0; pointer-events: none;
+  transition: opacity .25s, transform .25s;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+@media (prefers-reduced-motion: reduce) {
+  :root, .pane, .sci, .ind, .key, .chip, .entry, .toast { transition: none !important; }
+  .big.pop span { animation: none; }
+}
+</style>
+</head>
+<body data-mode="0">
+
+<div class="backdrop" aria-hidden="true">
+  <i class="blob b0"></i><i class="blob b1"></i><i class="blob b2"></i><i class="blob b3"></i>
+</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs id="lensDefs"></defs></svg>
+
+<div class="app">
+  <header class="topbar">
+    <h1 class="title" id="title">Calculator</h1>
+    <button class="chip" id="degBtn" type="button" hidden aria-label="Angle unit">Deg</button>
+    <button class="chip" id="clearBtn" type="button" hidden>Clear</button>
+  </header>
+
+  <main class="stage">
+    <section class="pane" id="calcPane" aria-label="Calculator">
+      <div class="screen glass" id="screen">
+        <div class="expr" id="expr"><span id="exprT"></span></div>
+        <button class="big" id="big" type="button" aria-live="polite" aria-label="Result. Tap to copy."><span id="bigT">0</span></button>
+      </div>
+      <div class="keypad glass">
+        <div class="sci" id="sci" inert><div class="sci-in"><div class="sci-grid" id="sciGrid"></div></div></div>
+        <div class="keys" id="keys"></div>
+      </div>
+    </section>
+
+    <section class="pane hist" id="histPane" aria-label="History" inert>
+      <div class="hist-scroll" id="histScroll"></div>
+    </section>
+  </main>
+</div>
+
+<div class="fade top" aria-hidden="true"></div>
+<div class="fade bottom" aria-hidden="true"></div>
+
+<div class="dock" id="dock">
+  <div class="dock-glass rim" id="dockGlass"></div>
+  <div class="tabs" role="tablist" aria-label="Calculator views">
+    <button class="tab" role="tab" aria-selected="true" data-i="0" type="button">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3.5"/><path d="M9 8h6"/><path d="M9 13h.01M12 13h.01M15 13h.01M9 17h.01M12 17h.01M15 17h.01"/></svg>
+      Basic
+    </button>
+    <button class="tab" role="tab" aria-selected="false" data-i="1" type="button" tabindex="-1">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 12.5h3l3 7 5-15h6"/></svg>
+      Scientific
+    </button>
+    <button class="tab" role="tab" aria-selected="false" data-i="2" type="button" tabindex="-1">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+      History
+    </button>
+  </div>
+  <i class="bubble rim" id="bubble" aria-hidden="true"></i>
+</div>
+
+<div class="toast glass" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ================= Calculator engine (no eval) ================= */
+class CalcError extends Error { constructor(code) { super(code); this.code = code; } }
+const FN = new Set(['sin', 'cos', 'tan', 'ln', 'log']);
+const OPS = '+−×÷^';
+const MESSAGES = {
+  div0: "Can't divide by zero",
+  domain: 'Not defined for this input',
+  syntax: 'Check the expression',
+  big: 'Result is too large'
+};
+
+function tokenize(s) {
+  const t = []; let i = 0;
+  while (i < s.length) {
+    const c = s[i];
+    if (c === ' ') { i++; continue; }
+    if (/[\d.]/.test(c)) {
+      const m = /^(\d*\.?\d*)(E[+-]?\d+)?/.exec(s.slice(i));
+      if (m[1] === '' || m[1] === '.') throw new CalcError('syntax');
+      t.push({ k: 'num', v: parseFloat(m[0].replace('E', 'e')) });
+      i += m[0].length; continue;
+    }
+    if (/[a-z]/.test(c)) {
+      let j = i; while (j < s.length && /[a-z]/.test(s[j])) j++;
+      const w = s.slice(i, j);
+      if (FN.has(w)) t.push({ k: 'fn', v: w });
+      else if (/^e+$/.test(w)) for (let n = 0; n < w.length; n++) t.push({ k: 'num', v: Math.E });
+      else throw new CalcError('syntax');
+      i = j; continue;
+    }
+    if (c === 'π') { t.push({ k: 'num', v: Math.PI }); i++; continue; }
+    if (c === '√') { t.push({ k: 'fn', v: 'sqrt' }); i++; continue; }
+    if (c === '²') { t.push({ k: 'sq' }); i++; continue; }
+    if (c === '%') { t.push({ k: 'pct' }); i++; continue; }
+    if ('+−-×÷*/^()'.includes(c)) { t.push({ k: 'op', v: ({ '−': '-', '×': '*', '÷': '/' })[c] || c }); i++; continue; }
+    throw new CalcError('syntax');
+  }
+  return t;
+}
+
+function parse(t) {
+  let p = 0;
+  const pk = () => t[p];
+  const isOp = v => pk() && pk().k === 'op' && pk().v === v;
+  const startsPrim = k => k && (k.k === 'num' || k.k === 'fn' || (k.k === 'op' && k.v === '('));
+  function expr() {
+    let l = term();
+    while (isOp('+') || isOp('-')) { const op = t[p++].v; l = { t: 'bin', op, l, r: term() }; }
+    return l;
+  }
+  function term() {
+    let l = unary();
+    for (;;) {
+      if (isOp('*') || isOp('/')) { const op = t[p++].v; l = { t: 'bin', op, l, r: unary() }; }
+      else if (startsPrim(pk())) l = { t: 'bin', op: '*', l, r: power() }; // implicit multiplication: 2π, 3(4)
+      else return l;
+    }
+  }
+  function unary() {
+    if (isOp('-')) { p++; return { t: 'neg', a: unary() }; }
+    if (isOp('+')) { p++; return unary(); }
+    return power();
+  }
+  function power() {
+    const b = postfix();
+    if (isOp('^')) { p++; return { t: 'pow', b, e: unary() }; }
+    return b;
+  }
+  function postfix() {
+    let a = primary();
+    while (pk() && (pk().k === 'pct' || pk().k === 'sq')) {
+      const k = t[p++].k;
+      a = k === 'pct' ? { t: 'pct', a } : { t: 'pow', b: a, e: { t: 'num', v: 2 } };
+    }
+    return a;
+  }
+  function primary() {
+    const k = t[p++];
+    if (!k) throw new CalcError('syntax');
+    if (k.k === 'num') return { t: 'num', v: k.v };
+    if (k.k === 'fn') {
+      let a;
+      if (isOp('(')) { p++; a = expr(); if (!isOp(')')) throw new CalcError('syntax'); p++; }
+      else a = power();
+      return { t: 'fn', f: k.v, a };
+    }
+    if (k.k === 'op' && k.v === '(') {
+      const a = expr(); if (!isOp(')')) throw new CalcError('syntax'); p++; return a;
+    }
+    throw new CalcError('syntax');
+  }
+  const ast = expr();
+  if (p < t.length) throw new CalcError('syntax');
+  return ast;
+}
+
+function applyFn(f, x, deg) {
+  const r = deg ? x * Math.PI / 180 : x;
+  let v;
+  switch (f) {
+    case 'sin': v = Math.sin(r); break;
+    case 'cos': v = Math.cos(r); break;
+    case 'tan': if (Math.abs(Math.cos(r)) < 1e-12) throw new CalcError('domain'); v = Math.tan(r); break;
+    case 'ln': if (x <= 0) throw new CalcError('domain'); return Math.log(x);
+    case 'log': if (x <= 0) throw new CalcError('domain'); return Math.log10(x);
+    case 'sqrt': if (x < 0) throw new CalcError('domain'); return Math.sqrt(x);
+  }
+  return Math.abs(v) < 1e-12 ? 0 : v;
+}
+
+function ev(n, deg) {
+  switch (n.t) {
+    case 'num': return n.v;
+    case 'neg': return -ev(n.a, deg);
+    case 'pct': return ev(n.a, deg) / 100;
+    case 'pow': { const v = Math.pow(ev(n.b, deg), ev(n.e, deg)); if (Number.isNaN(v)) throw new CalcError('domain'); return v; }
+    case 'fn': return applyFn(n.f, ev(n.a, deg), deg);
+    case 'bin': {
+      const a = ev(n.l, deg);
+      // "200 + 10%" means 200 + 10% of 200
+      const b = (n.r.t === 'pct' && (n.op === '+' || n.op === '-')) ? a * ev(n.r.a, deg) / 100 : ev(n.r, deg);
+      switch (n.op) {
+        case '+': return a + b;
+        case '-': return a - b;
+        case '*': return a * b;
+        case '/': if (b === 0) throw new CalcError('div0'); return a / b;
+      }
+    }
+  }
+  throw new CalcError('syntax');
+}
+
+function trimTail(s) {
+  let prev;
+  do {
+    prev = s;
+    s = s.replace(/(?:sin|cos|tan|ln|log|√)\($/, '').replace(/[+−×÷^]+$/, '').replace(/\($/, '');
+  } while (s !== prev);
+  return s;
+}
+function closeParens(s) {
+  const open = (s.match(/\(/g) || []).length - (s.match(/\)/g) || []).length;
+  return open > 0 ? s + ')'.repeat(open) : s;
+}
+const clean = s => closeParens(trimTail(s));
+
+function evaluate(s, deg) {
+  const c = clean(s);
+  if (c === '') throw new CalcError('syntax');
+  const v = ev(parse(tokenize(c)), deg);
+  if (!Number.isFinite(v)) throw new CalcError(Number.isNaN(v) ? 'domain' : 'big');
+  return Number(v.toPrecision(12));
+}
+
+/* number -> storable string (re-parsable) */
+function store(v) {
+  if (Object.is(v, -0)) v = 0;
+  const a = Math.abs(v);
+  let s;
+  if (a !== 0 && (a >= 1e15 || a < 1e-6)) s = v.toExponential(8).replace(/\.?0+e/, 'e').replace('e+', 'e').toUpperCase();
+  else s = String(v);
+  return s[0] === '-' ? '−' + s.slice(1) : s;
+}
+
+/* stored/typed string -> display string */
+const groupNum = m => {
+  const int = /^\d+/.exec(m)[0];
+  return int.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + m.slice(int.length).replace('E', 'e');
+};
+function fmtExpr(s) {
+  let out = '';
+  for (const c of s) {
+    if (OPS.includes(c)) {
+      const prev = out.trimEnd().slice(-1);
+      out += (prev && /[\d)%²πe]/.test(prev)) ? ' ' + c + ' ' : c;
+    } else out += c;
+  }
+  return out.replace(/\d+(?:\.\d*)?(?:E[+-]?\d+)?/g, groupNum);
+}
+
+/* ================= State ================= */
+const $ = (s, r = document) => r.querySelector(s);
+const root = document.documentElement;
+const S = { expr: '', prev: '', done: false, err: '', mode: 0, calcMode: 0, deg: true, hist: [], lastPreview: '' };
+
+try { const h = JSON.parse(localStorage.getItem('glasscalc.hist') || '[]'); if (Array.isArray(h)) S.hist = h.filter(x => x && typeof x.e === 'string' && typeof x.r === 'string').slice(0, 50); } catch (_) {}
+const saveHist = () => { try { localStorage.setItem('glasscalc.hist', JSON.stringify(S.hist)); } catch (_) {} };
+
+/* ================= Keys ================= */
+const ICON_BS = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 5H9.5L3 12l6.5 7H20a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><path d="m12.5 9.5 5 5m0-5-5 5"/></svg>';
+const BASIC = [
+  ['ac', 'AC', 'fn', 'Clear all'], ['bs', ICON_BS, 'fn', 'Backspace'], ['%', '%', 'fn', 'Percent'], ['÷', '÷', 'op', 'Divide'],
+  ['7', '7', 'num'], ['8', '8', 'num'], ['9', '9', 'num'], ['×', '×', 'op', 'Multiply'],
+  ['4', '4', 'num'], ['5', '5', 'num'], ['6', '6', 'num'], ['−', '−', 'op', 'Subtract'],
+  ['1', '1', 'num'], ['2', '2', 'num'], ['3', '3', 'num'], ['+', '+', 'op', 'Add'],
+  ['neg', '±', 'fn', 'Change sign'], ['0', '0', 'num'], ['.', '.', 'num', 'Decimal point'], ['=', '=', 'eq', 'Equals']
+];
+const SCI = [
+  ['sin', 'sin'], ['cos', 'cos'], ['tan', 'tan'], ['π', 'π', 'Pi'],
+  ['ln', 'ln', 'Natural log'], ['log', 'log', 'Log base 10'], ['√', '√', 'Square root'], ['^', 'x<sup>y</sup>', 'Power'],
+  ['(', '(', 'Open parenthesis'], [')', ')', 'Close parenthesis'], ['sq', 'x²', 'Square'], ['e', 'e', 'Euler’s number']
+];
+const FUNC_TEXT = { sin: 'sin(', cos: 'cos(', tan: 'tan(', ln: 'ln(', log: 'log(', '√': '√(' };
+
+function buildKeys() {
+  const mk = (arr, host, extra) => {
+    host.innerHTML = arr.map(([k, label, a, b]) => {
+      const cls = extra ? 'key sci' : 'key ' + (a || '');
+      const aria = extra ? a : b;
+      return `<button class="${cls}" type="button" data-k="${k}"${aria ? ` aria-label="${aria}"` : ''}><span>${label}</span></button>`;
+    }).join('');
+  };
+  mk(BASIC, $('#keys'), false);
+  mk(SCI, $('#sciGrid'), true);
+}
+
+/* ================= Input logic ================= */
+const ENDS_OPERAND = /[\d)%²πe]$/;
+const trailingNum = () => /(\d*\.?\d*)$/.exec(S.expr)[0];
+
+function lastOperandStart(e) {
+  if (e.endsWith(')')) {
+    let d = 0;
+    for (let i = e.length - 1; i >= 0; i--) {
+      if (e[i] === ')') d++;
+      else if (e[i] === '(') { d--; if (d === 0) { let j = i; while (j > 0 && /[a-z√]/.test(e[j - 1])) j--; return j; } }
+    }
+    return -1;
+  }
+  const m = /(\d+\.?\d*(?:E[+-]?\d+)?|\.\d+|π|e)$/.exec(e);
+  return m ? m.index : -1;
+}
+
+function negate() {
+  S.done = false;
+  const e = S.expr, st = lastOperandStart(e);
+  if (st < 0) { S.expr = e + '(−'; return; }
+  const tail = e.slice(st);
+  if (/^\(−(?:\d+\.?\d*(?:E[+-]?\d+)?|\.\d+|π|e)\)$/.test(tail)) { S.expr = e.slice(0, st) + tail.slice(2, -1); return; }
+  S.expr = e.slice(0, st) + '(−' + tail + ')';
+}
+
+function press(k) {
+  if (S.err) S.err = '';
+  const startFresh = () => { if (S.done) { S.expr = ''; S.prev = ''; S.done = false; } };
+
+  if (/^[0-9]$/.test(k)) {
+    startFresh();
+    const m = trailingNum();
+    if (m === '0') S.expr = S.expr.slice(0, -1) + k;
+    else if (/[)%²πe]$/.test(S.expr)) S.expr += '×' + k;
+    else S.expr += k;
+  } else if (k === '.') {
+    startFresh();
+    const m = trailingNum();
+    if (m.includes('.')) return;
+    if (m === '') { if (/[)%²πe]$/.test(S.expr)) S.expr += '×'; S.expr += '0.'; } else S.expr += '.';
+  } else if (OPS.includes(k)) {
+    S.done = false;
+    const e = S.expr, last = e.slice(-1);
+    if (e === '') S.expr = k === '−' ? '−' : '0' + k;
+    else if (OPS.includes(last)) {
+      if (k === '−' && '×÷^'.includes(last)) S.expr += '−';
+      else S.expr = (e.replace(/[+−×÷^]+$/, '') || '0') + k;
+    } else if (last === '(') { if (k === '−') S.expr += '−'; }
+    else S.expr += k;
+  } else if (k === '%') {
+    S.done = false;
+    if (/[\d)%²πe.]$/.test(S.expr)) S.expr += '%';
+  } else if (FUNC_TEXT[k]) {
+    if (S.done) { S.expr = FUNC_TEXT[k] + S.expr + ')'; S.done = false; S.prev = ''; }
+    else { if (/[\d)%²πe]$/.test(S.expr)) S.expr += '×'; S.expr += FUNC_TEXT[k]; }
+  } else if (k === '(') {
+    startFresh();
+    if (/[\d)%²πe]$/.test(S.expr)) S.expr += '×';
+    S.expr += '(';
+  } else if (k === ')') {
+    S.done = false;
+    const open = (S.expr.match(/\(/g) || []).length - (S.expr.match(/\)/g) || []).length;
+    if (open > 0 && !/[+−×÷^(]$/.test(S.expr)) S.expr += ')';
+  } else if (k === 'π' || k === 'e') {
+    startFresh();
+    if (/[\d)%²πe]$/.test(S.expr)) S.expr += '×';
+    S.expr += k;
+  } else if (k === 'sq') {
+    S.done = false;
+    if (/[\d)%²πe]$/.test(S.expr)) S.expr += '²';
+  } else if (k === 'neg') {
+    negate();
+  } else if (k === 'bs') {
+    S.done = false;
+    const m = /(?:sin|cos|tan|ln|log|√)\($/.exec(S.expr);
+    S.expr = m ? S.expr.slice(0, -m[0].length) : S.expr.slice(0, -1);
+  } else if (k === 'ac') {
+    S.expr = ''; S.prev = ''; S.done = false; S.lastPreview = '';
+  } else if (k === '=') {
+    equals();
+  }
+  render();
+}
+
+function equals() {
+  if (S.expr === '' || S.done) return;
+  if (/^−?\d*\.?\d*$/.test(S.expr)) { if (S.expr !== '' && S.expr !== '−') { S.done = true; S.prev = ''; } return; }
+  try {
+    const v = evaluate(S.expr, S.deg);
+    const r = store(v);
+    const e = fmtExpr(clean(S.expr));
+    S.prev = e + ' =';
+    if (!S.hist.length || S.hist[0].e !== e || S.hist[0].r !== r) { S.hist.unshift({ e, r }); S.hist = S.hist.slice(0, 50); saveHist(); }
+    S.expr = r; S.done = true; S.lastPreview = '';
+    nextPalette();
+    popNext = true;
+  } catch (err) {
+    S.err = MESSAGES[err.code] || MESSAGES.syntax;
+  }
+}
+
+function preview() {
+  const c = clean(S.expr);
+  if (!c) return null;
+  try { return store(evaluate(S.expr, S.deg)); } catch (_) { return null; }
+}
+
+/* ================= Rendering ================= */
+const exprEl = $('#expr'), exprT = $('#exprT'), bigEl = $('#big'), bigT = $('#bigT');
+let popNext = false;
+
+function fitBig() {
+  const max = Math.round(Math.min(76, Math.max(46, innerHeight * 0.09)));
+  if (bigEl.classList.contains('err')) { bigEl.style.fontSize = ''; return; }
+  bigEl.style.fontSize = max + 'px';
+  const cw = bigEl.clientWidth, w = bigT.offsetWidth;
+  if (w > cw && w > 0) bigEl.style.fontSize = Math.max(26, Math.floor(max * cw / w)) + 'px';
+}
+
+function render() {
+  const plain = /^−?\d*\.?\d*$/.test(S.expr);
+  let line1 = '', big = '0', dim = false, err = false;
+  if (S.err) { line1 = fmtExpr(S.expr); big = S.err; err = true; }
+  else if (S.done) { line1 = S.prev; big = fmtExpr(S.expr); }
+  else if (plain) { line1 = S.prev; big = S.expr === '' ? '0' : fmtExpr(S.expr); S.lastPreview = ''; }
+  else {
+    line1 = fmtExpr(S.expr);
+    const p = preview();
+    if (p !== null) S.lastPreview = p;
+    big = S.lastPreview ? fmtExpr(S.lastPreview) : '…';
+    dim = true;
+  }
+  exprT.textContent = line1;
+  bigT.textContent = big;
+  bigEl.classList.toggle('dim', dim);
+  bigEl.classList.toggle('err', err);
+  if (popNext) { bigEl.classList.remove('pop'); void bigEl.offsetWidth; bigEl.classList.add('pop'); popNext = false; }
+  exprEl.scrollLeft = exprEl.scrollWidth;
+  fitBig();
+}
+
+function renderHist() {
+  const host = $('#histScroll');
+  host.textContent = '';
+  if (!S.hist.length) {
+    const d = document.createElement('div'); d.className = 'empty';
+    d.innerHTML = '<p class="e1">No calculations yet</p><p class="e2">Finished calculations show up here. Tap one to use its result.</p>';
+    host.appendChild(d);
+  } else {
+    S.hist.forEach((h, i) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'entry'; b.dataset.i = i;
+      const e = document.createElement('span'); e.className = 'e'; e.textContent = h.e;
+      const r = document.createElement('span'); r.className = 'r'; r.textContent = fmtExpr(h.r);
+      b.append(e, r);
+      b.setAttribute('aria-label', `${h.e} equals ${fmtExpr(h.r)}. Use this result.`);
+      host.appendChild(b);
+    });
+  }
+  $('#clearBtn').disabled = !S.hist.length;
+}
+
+/* ================= Modes + liquid dock ================= */
+const dock = $('#dock'), tabs = [...dock.querySelectorAll('.tab')];
+const bubble = $('#bubble'), dockGlass = $('#dockGlass');
+const titles = ['Calculator', 'Scientific', 'History'];
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* spring state: x = value, v = velocity */
+const mkS = x => ({ x, v: 0 });
+const pos = mkS(0), prs = mkS(0), scx = mkS(1), scy = mkS(1), velS = mkS(0);
+let targetPos = 0, pressT = 0, dragging = false, raf2 = 0, lastT = 0, prevPos = 0;
+const PRESS_SCALE = RM ? 1 : 78 / 56;      // bubble inflates when you touch it
+const lens = {};                           // filled by setupLens()
+
+function stepSpring(s, target, k, z, dt) {
+  const c = 2 * z * Math.sqrt(k), n = Math.max(1, Math.ceil(dt / 0.004)), h = dt / n;
+  for (let i = 0; i < n; i++) { s.v += (-k * (s.x - target) - c * s.v) * h; s.x += s.v * h; }
+}
+
+function paintDock() {
+  const W = dock.offsetWidth || 1, tw = (W - 12) / 3, p = clamp(prs.x, 0, 1);
+  const vN = velS.x / 10;                                   // squash & stretch with swipe speed
+  const sx = scx.x / (1 - clamp(vN * 0.75, -0.2, 0.2));
+  const sy = scy.x * (1 - clamp(vN * 0.25, -0.2, 0.2));
+  const st = dock.style;
+  st.setProperty('--bx', (pos.x * tw).toFixed(2) + 'px');
+  st.setProperty('--sx', sx.toFixed(4));
+  st.setProperty('--sy', sy.toFixed(4));
+  st.setProperty('--p', p.toFixed(3));
+  st.setProperty('--ds', (1 + (16 / W) * p).toFixed(4)); // whole bar swells a little under your finger
+  if (lens.bub) {
+    lens.bub.disp.forEach((n, i) => n.setAttribute('scale', (lens.bub.base[i] * p).toFixed(2)));
+    bubble.style.backdropFilter = `saturate(${(1.5).toFixed(2)}) blur(${(7 * (1 - p)).toFixed(2)}px) url(#${lens.bub.id})`;
+  }
+}
+
+function physTick(t) {
+  const dt = Math.min(0.034, Math.max(0.001, (t - lastT) / 1000)); lastT = t;
+  if (!dragging) stepSpring(pos, targetPos, RM ? 4000 : 520, RM ? 1 : 0.8, dt);
+  const raw = (pos.x - prevPos) / dt; prevPos = pos.x;
+  stepSpring(velS, raw, 300, 0.5, dt);
+  stepSpring(prs, pressT, 900, 1, dt);
+  const sT = 1 + (PRESS_SCALE - 1) * clamp(prs.x, 0, 1.2);
+  stepSpring(scx, sT, 250, 0.6, dt);
+  stepSpring(scy, sT, 250, 0.7, dt);
+  paintDock();
+  const rest = !dragging && Math.abs(pos.x - targetPos) < 0.0008 && Math.abs(pos.v) < 0.01 &&
+    Math.abs(prs.x - pressT) < 0.002 && Math.abs(prs.v) < 0.01 &&
+    Math.abs(scx.x - sT) < 0.002 && Math.abs(scx.v) < 0.01 && Math.abs(scy.x - sT) < 0.002 && Math.abs(scy.v) < 0.01 && Math.abs(velS.x) < 0.01;
+  raf2 = rest ? 0 : requestAnimationFrame(physTick);
+  if (rest) { pos.x = targetPos; velS.x = 0; paintDock(); }
+}
+function kick() { if (!raf2) { lastT = performance.now(); prevPos = pos.x; raf2 = requestAnimationFrame(physTick); } }
+
+function setMode(i) {
+  if (i === S.mode) { targetPos = i; if (!dragging) kick(); return; }
+  S.mode = i;
+  if (i < 2) S.calcMode = i;
+  document.body.dataset.mode = i;
+  tabs.forEach((t, n) => { t.setAttribute('aria-selected', n === i); t.tabIndex = n === i ? 0 : -1; });
+  $('#title').textContent = titles[i];
+  $('#sci').toggleAttribute('inert', i !== 1);
+  $('#calcPane').toggleAttribute('inert', i === 2);
+  $('#histPane').toggleAttribute('inert', i !== 2);
+  $('#degBtn').hidden = i !== 1;
+  $('#clearBtn').hidden = i !== 2;
+  if (i === 2) { renderHist(); $('#histScroll').scrollTop = 0; }
+  targetPos = i;
+  if (!dragging) kick();
+  requestAnimationFrame(fitBig);
+}
+
+const buzz = () => { try { navigator.vibrate && navigator.vibrate(8); } catch (_) {} };
+let dn = null;
+const PAD = 6;
+const localX = e => { const r = dock.getBoundingClientRect(); return (e.clientX - r.left) * (dock.offsetWidth / (r.width || 1)); };
+
+dock.addEventListener('pointerdown', e => {
+  if (e.button > 0) return;
+  dn = { x0: e.clientX, v0: pos.x, moved: false, tab: Math.round(pos.x) };
+  pressT = 1;
+  try { dock.setPointerCapture(e.pointerId); } catch (_) {}
+  kick();
+});
+dock.addEventListener('pointermove', e => {
+  if (!dn) return;
+  const dx = e.clientX - dn.x0;
+  if (!dn.moved && Math.abs(dx) > 5) { dn.moved = true; dragging = true; }
+  if (!dn.moved) return;
+  const tw = (dock.offsetWidth - PAD * 2) / 3;
+  pos.x = clamp(dn.v0 + dx / tw, 0, 2);                      // follows the finger, hard-clamped to first/last tab
+  const t = Math.round(pos.x);
+  if (t !== dn.tab) { dn.tab = t; buzz(); }                  // haptic tick when it crosses a tab
+  kick();
+});
+function endPress(e) {
+  if (!dn) return;
+  const cancelled = e.type === 'pointercancel';
+  let idx = S.mode;
+  if (!cancelled) {
+    if (dn.moved) idx = Math.round(pos.x);
+    else { const tw = (dock.offsetWidth - PAD * 2) / 3; idx = clamp(Math.floor((localX(e) - PAD) / tw), 0, 2); }
+  }
+  pressT = 0; dragging = false; dn = null;
+  if (idx !== S.mode) buzz();
+  setMode(idx);
+  targetPos = idx; kick();
+}
+dock.addEventListener('pointerup', endPress);
+dock.addEventListener('pointercancel', endPress);
+tabs.forEach((t, n) => t.addEventListener('click', e => { if (e.detail === 0) setMode(n); }));
+dock.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+    const n = clamp(S.mode + (e.key === 'ArrowRight' ? 1 : -1), 0, 2);
+    setMode(n); tabs[n].focus(); e.preventDefault();
+  }
+});
+
+/* ================= Wiring ================= */
+buildKeys();
+$('#calcPane').addEventListener('click', e => {
+  const b = e.target.closest('button.key');
+  if (b) press(b.dataset.k);
+});
+$('#histScroll').addEventListener('click', e => {
+  const b = e.target.closest('.entry');
+  if (!b) return;
+  const h = S.hist[+b.dataset.i];
+  if (!h) return;
+  S.expr = h.r; S.prev = ''; S.done = true; S.err = ''; S.lastPreview = '';
+  const back = S.calcMode;
+  setMode(back);
+  render();
+});
+$('#degBtn').addEventListener('click', () => {
+  S.deg = !S.deg;
+  $('#degBtn').textContent = S.deg ? 'Deg' : 'Rad';
+  render();
+});
+$('#clearBtn').addEventListener('click', () => { S.hist = []; saveHist(); renderHist(); toast('History cleared'); });
+
+let toastTimer = 0;
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1500);
+}
+bigEl.addEventListener('click', async () => {
+  if (S.err || (S.expr === '' && !S.lastPreview)) return;
+  const raw = S.done || /^−?\d*\.?\d*$/.test(S.expr) ? S.expr : S.lastPreview;
+  if (!raw) return;
+  const text = raw.replace('−', '-').replace('E', 'e');
+  try { await navigator.clipboard.writeText(text); toast('Copied ' + fmtExpr(raw)); }
+  catch (_) { toast('Copy isn’t available here'); }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey || S.mode === 2) return;
+  const k = e.key; let m = null;
+  if (/^[0-9]$/.test(k)) m = k;
+  else if (k === '.' || k === ',') m = '.';
+  else if (k === '+') m = '+';
+  else if (k === '-') m = '−';
+  else if (k === '*' || k === 'x') m = '×';
+  else if (k === '/') { m = '÷'; e.preventDefault(); }
+  else if (k === 'Enter' || k === '=') { if (k === 'Enter' && document.activeElement && document.activeElement.tagName === 'BUTTON') return; m = '='; e.preventDefault(); }
+  else if (k === 'Backspace') m = 'bs';
+  else if (k === 'Escape') m = 'ac';
+  else if (k === '%' || k === '(' || k === ')' || k === '^') m = k;
+  if (m) press(m);
+});
+
+/* ================= Backdrop: palettes + drift ================= */
+const PALETTES = [
+  { c: ['#6a3df0', '#ff5fa2', '#2ec5ff', '#ffb35c'], a: '#7c4dff' },
+  { c: ['#0ea5a0', '#2b59ff', '#6fe3ff', '#a58bff'], a: '#1f78ff' },
+  { c: ['#ff5a36', '#ffb020', '#c2185b', '#7a3cff'], a: '#e5472b' },
+  { c: ['#c04dff', '#ff7ad9', '#4d6bff', '#ffd1f5'], a: '#b64bff' }
+];
+let pal = 0;
+function applyPalette(i) {
+  const p = PALETTES[i];
+  p.c.forEach((c, k) => root.style.setProperty('--c' + k, c));
+  root.style.setProperty('--accent', p.a);
+}
+const blobs = [...document.querySelectorAll('.blob')];
+const ANCHOR = [[.12, .1], [.92, .26], [.08, .72], [.88, .94]];
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let phase = 0, from = 0, target = 0, t0 = 0, raf = 0;
+const DRIFT = Math.PI * 0.9, DURATION = 8000;
+
+function place(ph) {
+  const W = innerWidth, H = innerHeight, size = Math.max(W, H) * 0.92;
+  blobs.forEach((b, i) => {
+    const a = ph * (1 + i * 0.15) + i * 1.9;
+    const x = ANCHOR[i][0] * W + Math.cos(a) * W * 0.16;
+    const y = ANCHOR[i][1] * H + Math.sin(a * 0.9 + i) * H * 0.09;
+    b.style.width = b.style.height = size + 'px';
+    b.style.transform = `translate3d(${x - size / 2}px, ${y - size / 2}px, 0)`;
+  });
+}
+function step(t) {
+  const k = Math.min(1, (t - t0) / DURATION), e = 1 - Math.pow(1 - k, 3);
+  phase = from + (target - from) * e;
+  place(phase);
+  raf = k < 1 ? requestAnimationFrame(step) : 0; // settles, so it stops costing battery
+}
+function drift() {
+  from = phase; target = phase + DRIFT;
+  if (reduce) { phase = target; place(phase); return; }
+  t0 = performance.now();
+  if (!raf) raf = requestAnimationFrame(step);
+}
+function nextPalette() { pal = (pal + 1) % PALETTES.length; applyPalette(pal); drift(); }
+
+/* ================= Real refraction (Chromium: SVG displacement through backdrop-filter) ================= */
+const SVGNS = 'http://www.w3.org/2000/svg';
+const svgEl = (n, a) => { const e = document.createElementNS(SVGNS, n); for (const k in a) e.setAttribute(k, a[k]); return e; };
+
+/* Displacement map from a rounded-rect distance field: at the bezel the glass bends the backdrop inward, flat in the middle. */
+function lensMap(w, h, r, bezel) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'), im = g.createImageData(w, h), d = im.data;
+  const cx = w / 2, cy = h / 2, hx = w / 2 - r, hy = h / 2 - r;
+  for (let j = 0; j < h; j++) {
+    for (let i = 0; i < w; i++) {
+      const px = i + 0.5 - cx, py = j + 0.5 - cy;
+      const qx = Math.abs(px) - hx, qy = Math.abs(py) - hy;
+      const ox = Math.max(qx, 0), oy = Math.max(qy, 0), out = Math.hypot(ox, oy);
+      const dist = -(out + Math.min(Math.max(qx, qy), 0) - r);
+      let R = 128, G = 128;
+      if (dist > 0 && dist < bezel) {
+        let nx, ny;
+        if (out > 0) { nx = ox * Math.sign(px) / out; ny = oy * Math.sign(py) / out; }
+        else if (qx > qy) { nx = Math.sign(px); ny = 0; } else { nx = 0; ny = Math.sign(py); }
+        const m = Math.pow(1 - dist / bezel, 2.4);
+        R = 128 - nx * m * 127; G = 128 - ny * m * 127;
+      }
+      const k = (j * w + i) * 4;
+      d[k] = R; d[k + 1] = G; d[k + 2] = 128; d[k + 3] = 255;
+    }
+  }
+  g.putImageData(im, 0, 0);
+  return c.toDataURL('image/png');
+}
+
+function buildLens(key, el, o) {
+  const w = Math.round(el.offsetWidth), h = Math.round(el.offsetHeight);
+  if (w < 8 || h < 8) return null;
+  const id = 'lens-' + key, defs = $('#lensDefs'), href = lensMap(w, h, o.r, o.bezel), slack = o.slack || 0;
+  let f = document.getElementById(id);
+  if (f) {                                   // resize: update in place so the element's reference stays valid
+    f.setAttribute('width', w + slack); f.setAttribute('height', h + slack);
+    const im = f.querySelector('feImage'); im.setAttribute('href', href); im.setAttribute('width', w); im.setAttribute('height', h);
+    return lens[key];
+  }
+  f = svgEl('filter', { id, filterUnits: 'userSpaceOnUse', x: 0, y: 0, width: w + slack, height: h + slack, 'color-interpolation-filters': 'sRGB' });
+  f.appendChild(svgEl('feImage', { href, x: 0, y: 0, width: w, height: h, preserveAspectRatio: 'none', result: 'map' }));
+  const S2 = o.px * 2, disp = [], base = [];
+  const mk = (scale, result) => {
+    const a = { in: 'SourceGraphic', in2: 'map', scale, xChannelSelector: 'R', yChannelSelector: 'G' };
+    if (result) a.result = result;
+    const n = svgEl('feDisplacementMap', a); disp.push(n); base.push(scale); f.appendChild(n);
+  };
+  if (!o.aberr) mk(S2);
+  else {
+    mk(S2, 'dr'); mk(S2 * 0.9, 'dg'); mk(S2 * 0.8, 'db');       // chromatic aberration: each colour bends a little differently
+    const cm = (inn, vals, res) => f.appendChild(svgEl('feColorMatrix', { in: inn, type: 'matrix', values: vals, result: res }));
+    cm('dr', '1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0', 'cr');
+    cm('dg', '0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0', 'cg');
+    cm('db', '0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0', 'cb');
+    f.appendChild(svgEl('feBlend', { in: 'cr', in2: 'cg', mode: 'screen', result: 'rg' }));
+    f.appendChild(svgEl('feBlend', { in: 'rg', in2: 'cb', mode: 'screen' }));
+  }
+  defs.appendChild(f);
+  return (lens[key] = { id, disp, base });
+}
+
+function setupLens() {
+  if (!/\bChrome\/\d+/.test(navigator.userAgent)) return;       // other engines keep the frosted fallback
+  const screenEl = $('#screen'), keypadEl = $('.keypad');
+  const apply = () => {
+    const d = buildLens('dock', dockGlass, { r: 32, bezel: 26, px: 14 });
+    if (d) dockGlass.style.backdropFilter = `saturate(1.8) blur(6px) url(#${d.id})`;
+    buildLens('bub', bubble, { r: 26, bezel: 16, px: 17, aberr: true });
+    [['screen', screenEl], ['keypad', keypadEl]].forEach(([k, el]) => {
+      const l = buildLens(k, el, { r: 32, bezel: 20, px: 9, slack: 700 });
+      if (l) el.style.backdropFilter = `saturate(1.7) blur(10px) url(#${l.id})`;
+    });
+    paintDock();
+  };
+  apply();
+  let tmr = 0;
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(() => { clearTimeout(tmr); tmr = setTimeout(apply, 160); });
+    [dockGlass, screenEl, keypadEl].forEach(e => ro.observe(e));
+  }
+}
+
+/* ================= Init ================= */
+applyPalette(0);
+place(0);
+drift();
+render();
+$('#degBtn').textContent = 'Deg';
+setupLens();
+paintDock();
+addEventListener('resize', () => { place(phase); fitBig(); });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitBig);
+
+})();
+</script>
+</body>
+</html>
